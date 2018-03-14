@@ -6,7 +6,7 @@ from theano import tensor as T
 from df_plotting import *
 from df_data import _data_df2dict, longest_delay
 
-from sklearn.metrics import roc_auc_score, log_loss
+from sklearn.metrics import log_loss
 
 
 def choice_func_psychometric(α, ϵ, VA, VB):
@@ -25,19 +25,6 @@ def _cumulative_normal(x):
     """Calculates density of the cumulative standard normal distribution.
     Used by PyMC3, therefore must be compatible with it."""
     return 0.5 + 0.5 * pm.math.erf(x/pm.math.sqrt(2))
-
-
-def calc_auc(R_predicted, R_actual):
-    """Returns a distribution of AUC scores, one for each sample"""
-    nsamples = R_predicted.shape[0]
-    nresponses = R_actual.shape[0]
-    assert np.ndim(R_predicted) == 2, "R_predicted is a vector(?) but should be a 2D matrix"
-    assert R_predicted.shape[1] == nresponses, "cols in R_predicted should equal number of responses"
-    print('Calculating AUC metric')
-    R_actual = np.matlib.repmat(R_actual, nsamples, 1)
-    auc = [roc_auc_score(R_actual[n, :], R_predicted[n, :]) for n in range(0, nsamples)]
-    return auc
-
 
 def calc_log_loss(R_predicted, R_actual):
     """Returns a distribution of log loss scores, one for each sample"""
@@ -135,7 +122,6 @@ class BinaryResponseModel(Model):
     contrasts to matching designs where responses are continuous."""
     def _calc_metrics(self, data):
         metrics = {}
-        metrics['auc'] = calc_auc(self.trace.P_chooseB, data['R'])
         metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
         return metrics
 

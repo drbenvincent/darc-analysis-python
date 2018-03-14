@@ -42,25 +42,21 @@ def model_comparison_metrics(models, save_dir, file_id, should_plot=True, export
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-    auc_median = [np.median(model.metrics['auc']) for model in models]
     log_loss_median = [np.median(model.metrics['log_loss']) for model in models]
     model_names = [model.__class__.__name__ for model in models]
 
     output = pd.DataFrame(
         {'name': model_names,
-         'auc_median': auc_median,
          'log_loss_median': log_loss_median
          }).set_index('name')
 
     if should_plot is True:
-        f, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
-        auc_plot = sns.barplot(model_names, auc_median, palette="Set3", ax=ax1)
-        ax1.set_ylabel("AUC")
+        f, ax = plt.subplots(1, 1, figsize=(8, 6))
 
-        log_loss_plot = sns.barplot(model_names, log_loss_median, palette="Set3", ax=ax2)
-        ax2.set_ylabel("log loss")
+        log_loss_plot = sns.barplot(model_names, log_loss_median, palette="Set3", ax=ax)
+        ax.set_ylabel("log loss")
 
-        log_loss_plot.set_xticklabels(log_loss_plot.get_xticklabels(), rotation=-90);
+        log_loss_plot.set_xticklabels(log_loss_plot.get_xticklabels(), rotation=-90)
 
         if export is True:
             plt.savefig(f'{directory}/{file_id}_model_metric.pdf', format='pdf', bbox_inches='tight')
