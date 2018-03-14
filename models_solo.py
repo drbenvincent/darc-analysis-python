@@ -459,6 +459,54 @@ class ExponentialPower(BinaryResponseModel):
         return model
 
 
+class ExponentialLog(BinaryResponseModel):
+    """Exponential Log model
+    exp(-k.ln(1+S.D))"""
+
+    df_params = ['logk', 's', 'alpha']
+
+    @staticmethod
+    def _df(logk, s, delay):
+        """Discount function, which must be compatable with PyMC3"""
+        k = np.exp(logk)
+        return pm.math.exp(-k * pm.math.log(1+s*delay))
+
+    @staticmethod
+    def df_plotting(delay, params):
+        """Discount function, used for plotting.
+        Has to be able to handle vector inputs for the parameters and delays
+        params = dictionary of numpy arrays
+        """
+        delay = delay[np.newaxis, :]
+        s = params['s']
+        k = np.exp(params['logk'])
+        s = s[:, np.newaxis]
+        k = k[:, np.newaxis]
+        return np.exp(-k * np.log(1 + s * delay))
+
+    def _build_model(self, data):
+        data = _data_df2dict(data)
+        with pm.Model() as model:
+            # Priors
+            #k = pm.Normal('k', mu=0.001, sd=0.5)
+            logk = pm.Normal('logk', mu=-4, sd=5)
+            s = pm.Bound(pm.Normal, lower=0)('s', mu=1, sd=2)
+            α = pm.Exponential('alpha', lam=1)
+            ϵ = 0.01
+            # Value functions
+            VA = pm.Deterministic('VA', data['A'] * self._df(logk, s, data['DA']))
+            VB = pm.Deterministic('VB', data['B'] * self._df(logk, s, data['DB']))
+            # Choice function: psychometric
+            P_chooseB = pm.Deterministic('P_chooseB',
+                                         choice_func_psychometric(α, ϵ, VA, VB))
+            # Likelihood of observations
+            r_likelihood = pm.Bernoulli('r_likelihood',
+                                        p=P_chooseB,
+                                        observed=data['R'])
+
+        return model
+
+
 class DoubleExponential(BinaryResponseModel):
     """Double Exponential discount function by McClure et al (2007)"""
 
@@ -558,8 +606,6 @@ class BetaDelta(BinaryResponseModel):
 These are in progress!
 
 '''
-
-
 
 
 class TradeOff(BinaryResponseModel):

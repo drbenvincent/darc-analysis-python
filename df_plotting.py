@@ -34,7 +34,7 @@ def df_comparison(models, data, path, file_id, plotCI=True, export=True):
 
     # plot bar chart of metrics ------------------------------------------------
     fig, ax = plt.subplots(figsize=(14, 10))
-    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
+    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8']
 
     for i, model in enumerate(models):
         delays, df_pp_matrix = model.df_posterior_prediction()
