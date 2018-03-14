@@ -335,7 +335,8 @@ class HyperboloidA(BinaryResponseModel):
 
 
 class HyperboloidB(BinaryResponseModel):
-    """Rachlin (2006) Hyperboloid"""
+    """Rachlin (2006) Hyperboloid. I've also called this the Hyperbolic Power
+     model"""
 
     df_params = ['logk', 's', 'alpha']
 
@@ -375,8 +376,53 @@ class HyperboloidB(BinaryResponseModel):
         return model
 
 
+class HyperbolicLog(BinaryResponseModel):
+    """Hyperbolic discounting of log scaled time.
+    1/(1+k.log(1+S.D))"""
+
+    df_params = ['logk', 's', 'alpha']
+
+    @staticmethod
+    def _df(logk, s, delay):
+        """Discount function, which must be compatable with PyMC3"""
+        k = pm.math.exp(logk)
+        return 1.0 / (1.0 + k * pm.math.log(1+s*delay))
+
+    @staticmethod
+    def df_plotting(delay, params):
+        """Discount function, used for plotting.
+        Has to be able to handle vector inputs for the parameters and delays.
+        Number of rows should equal number of delays"""
+        delay = delay[np.newaxis, :]
+        s = params['s']
+        k = np.exp(params['logk'])
+        s = s[:, np.newaxis]
+        k = k[:, np.newaxis]
+        return 1./(1. + k * np.log(1. + s * delay))
+
+    def _build_model(self, data):
+        data = _data_df2dict(data)
+        with pm.Model() as model:
+            # Priors
+            logk = pm.Normal('logk', mu=-4, sd=5)
+            s = pm.Bound(pm.Normal, lower=0)('s', mu=1, sd=2)
+            α = pm.Exponential('alpha', lam=1)
+            ϵ = 0.01
+            # Value functions
+            VA = pm.Deterministic('VA', data['A'] * self._df(logk, s, data['DA']))
+            VB = pm.Deterministic('VB', data['B'] * self._df(logk, s, data['DB']))
+            # Choice function: psychometric
+            P_chooseB = pm.Deterministic('P_chooseB', choice_func_psychometric(α, ϵ, VA, VB))
+            # Likelihood of observations
+            r_likelihood = pm.Bernoulli('r_likelihood',
+                                        p=P_chooseB,
+                                        observed=data['R'])
+
+        return model
+
+
 class ConstantSensitivity(BinaryResponseModel):
-    """Constant Sensitivity discount function by Ebert et al (2007)"""
+    """Constant Sensitivity discount function by Ebert et al (2007)."""
 
     df_params = ['k', 's', 'alpha']
 
@@ -594,8 +640,6 @@ class BetaDelta(BinaryResponseModel):
         return model
 
 
-
-
 '''
    _                     _     _   _                            _      _
   | |__   ___ _   _ _ __(_)___| |_(_) ___   _ __ ___   ___   __| | ___| |___
@@ -709,7 +753,7 @@ class DRIFT(BinaryResponseModel):
     utility models.
     """
 
-    df_params = ['beta','alpha']
+    df_params = ['beta', 'alpha']
 
     @staticmethod
     def df_plotting(delay, params):
