@@ -26,6 +26,7 @@ def _cumulative_normal(x):
     Used by PyMC3, therefore must be compatible with it."""
     return 0.5 + 0.5 * pm.math.erf(x/pm.math.sqrt(2))
 
+
 def calc_log_loss(R_predicted, R_actual):
     """Returns a distribution of log loss scores, one for each sample"""
     nsamples = R_predicted.shape[0]
@@ -77,7 +78,6 @@ class Model:
     # target_accept=.8
     model = None
     trace = None
-    metrics = None
 
     def get_df_traces(self):
         """returns a dictionary containing the discount fraction related
@@ -97,33 +97,60 @@ class Model:
         self.metrics = self._calc_metrics(data)
         return
 
-    def df_posterior_prediction(self, max_delay=365+7):
-        delays = np.arange(0, max_delay, 1)
-        param_dict = self.get_df_traces()
-        discount_factor_matrix = self.df_plotting(delays, param_dict)
-        return (delays, discount_factor_matrix.T)
-
-    def plot(self, data):
-        assert self.trace is not None, "No trace found. Have you sampled yet?"
-
-        max_delay = longest_delay(data)*1.1
-        delays, df_pp_matrix = self.df_posterior_prediction(max_delay=max_delay)
-        assert df_pp_matrix.shape[0] == delays.shape[0], "Number of rows in posterior prediction should equal number of delays"
-
-        fig, ax = plt.subplots(figsize=(14, 8))
-        plot_discount_functions_region(ax, delays, df_pp_matrix)
-        plot_data(data, ax)
-        ax.set_xlabel('delay (days)')
-        ax.set_ylabel('discount fraction')
+    def plot(self, data, ax, col='k'):
+        print('ZZZZ Model base class method being called ZZZZ')
+        pass
 
 
 class BinaryResponseModel(Model):
     """Models where people are making binary choices between 2 prospects. This
     contrasts to matching designs where responses are continuous."""
+
+    metrics = None
+
     def _calc_metrics(self, data):
         metrics = {}
         metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
         return metrics
+
+
+class DiscountedUtilityModel(BinaryResponseModel):
+    """Models based on discounted utility"""
+
+    AUC = None
+
+    def df_posterior_prediction(self, max_delay=365+7):
+        assert self.trace is not None, "No trace found. Have you sampled yet?"
+        delays = np.arange(0, max_delay, 1)
+        param_dict = self.get_df_traces()
+        discount_factor_matrix = self.df_plotting(delays, param_dict).T
+        assert discount_factor_matrix.shape[0] == delays.shape[0], "Number of rows in posterior prediction should equal number of delays"
+        return (delays, discount_factor_matrix)
+
+    def plot(self, data, ax, col='k', plotCI=True, label=None, alpha=0.05):
+        """Plot discount functions. Does the appropriate posterior prediction
+        before"""
+
+        # do posterior prediction
+        max_delay = longest_delay(data)*1.1
+        delays, df_pp_matrix = self.df_posterior_prediction(max_delay=max_delay)
+
+        # plot CI region
+        if plotCI:
+            percentiles = 100 * np.array([alpha / 2., 1. - alpha / 2.])
+            hpd = np.percentile(df_pp_matrix, percentiles, axis=1)
+            ax.fill_between(delays, hpd[0], hpd[1], facecolor=col, alpha=0.25)
+
+        # plot mean df
+        curve_mean = df_pp_matrix.mean(axis=1)
+        plt.plot(delays, curve_mean, color=col, label=self.__class__.__name__, lw=2.)
+
+
+class HeuristicModel(BinaryResponseModel):
+    """Heuristic models. No plotting (yet)"""
+
+    def plot(self, data, ax, col='k'):
+        pass
 
 
 '''
@@ -152,12 +179,12 @@ class Coinflip(BinaryResponseModel):
 
         return model
 
-    def plot(self, data):
+    def plot(self, data, ax, col='k'):
         """No plotting for the coinflip model"""
         pass
 
 
-class Exponential(BinaryResponseModel):
+class Exponential(DiscountedUtilityModel):
     """The classic Samuelson (1937) Exponential discount function"""
 
     df_params = ['k', 'alpha']
@@ -196,7 +223,7 @@ class Exponential(BinaryResponseModel):
         return model
 
 
-class Hyperbolic(BinaryResponseModel):
+class Hyperbolic(DiscountedUtilityModel):
     """Classic hyperboloid function of Mazur (1987)"""
 
     df_params = ['logk', 'alpha']
@@ -235,7 +262,7 @@ class Hyperbolic(BinaryResponseModel):
         return model
 
 
-class HyperbolicMagnitudeEffect(BinaryResponseModel):
+class HyperbolicMagnitudeEffect(DiscountedUtilityModel):
     """Classic hyperboloid function of Mazur (1987), but where log discounte
     rate is linearly related to log reward magnitude. See Vincent (2016)."""
 
@@ -279,7 +306,7 @@ class HyperbolicMagnitudeEffect(BinaryResponseModel):
         pass
 
 
-class HyperboloidA(BinaryResponseModel):
+class HyperboloidA(DiscountedUtilityModel):
     """Myerson & Green (1995) Hyperboloid"""
 
     df_params = ['logk', 's', 'alpha']
@@ -320,7 +347,7 @@ class HyperboloidA(BinaryResponseModel):
         return model
 
 
-class HyperboloidB(BinaryResponseModel):
+class HyperboloidB(DiscountedUtilityModel):
     """Rachlin (2006) Hyperboloid. I've also called this the Hyperbolic Power
      model"""
 
@@ -362,7 +389,7 @@ class HyperboloidB(BinaryResponseModel):
         return model
 
 
-class HyperbolicLog(BinaryResponseModel):
+class HyperbolicLog(DiscountedUtilityModel):
     """Hyperbolic discounting of log scaled time.
     1/(1+k.log(1+S.D))"""
 
@@ -407,7 +434,7 @@ class HyperbolicLog(BinaryResponseModel):
         return model
 
 
-class ConstantSensitivity(BinaryResponseModel):
+class ConstantSensitivity(DiscountedUtilityModel):
     """Constant Sensitivity discount function by Ebert et al (2007)."""
 
     df_params = ['k', 's', 'alpha']
@@ -450,7 +477,7 @@ class ConstantSensitivity(BinaryResponseModel):
         return model
 
 
-class ExponentialPower(BinaryResponseModel):
+class ExponentialPower(DiscountedUtilityModel):
     """Exponential Power model
     Similar in form to the Constant Sensitivity discount function."""
 
@@ -491,7 +518,7 @@ class ExponentialPower(BinaryResponseModel):
         return model
 
 
-class ExponentialLog(BinaryResponseModel):
+class ExponentialLog(DiscountedUtilityModel):
     """Exponential Log model
     exp(-k.ln(1+S.D))"""
 
@@ -539,7 +566,7 @@ class ExponentialLog(BinaryResponseModel):
         return model
 
 
-class DoubleExponential(BinaryResponseModel):
+class DoubleExponential(DiscountedUtilityModel):
     """Double Exponential discount function by McClure et al (2007)"""
 
     df_params = ['k', 'p', 'alpha']
@@ -584,7 +611,7 @@ class DoubleExponential(BinaryResponseModel):
         return model
 
 
-class BetaDelta(BinaryResponseModel):
+class BetaDelta(DiscountedUtilityModel):
     """Beta Delta discount function by Phelps & Pollak (1968)"""
 
     df_params = ['beta', 'delta', 'alpha']
@@ -638,7 +665,7 @@ These are in progress!
 '''
 
 
-class TradeOff(BinaryResponseModel):
+class TradeOff(HeuristicModel):
     """Trade Off model by Scholten & Read (2010)
     Note that this is a Heuristic model, outside the category of discounted
     utility models.
@@ -696,7 +723,7 @@ class TradeOff(BinaryResponseModel):
         return model
 
 
-class ITCH(BinaryResponseModel):
+class ITCH(HeuristicModel):
     """ITCH model by Ericson et al (2015)
     Ericson et al (2015) and the follow up critique of Wulff & van den Bos (2017)
     """
@@ -732,7 +759,7 @@ class ITCH(BinaryResponseModel):
         return model
 
 
-class DRIFT(BinaryResponseModel):
+class DRIFT(HeuristicModel):
     """DRIFT model by Read et al (2013)
     Based upon the implementation of Wulff & van den Bos (2017)
     Note that this is a Heuristic model, outside the category of discounted

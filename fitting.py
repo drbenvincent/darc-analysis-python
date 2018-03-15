@@ -1,6 +1,6 @@
 from df_data import get_data_by_file_index
 from df_plotting import plot_model_diagnostics
-from df_plotting import df_comparison
+from df_plotting import discount_function_plotter
 from model_comparison import model_comparison_metrics, model_comparison_LOO, model_comparison_WAIC
 
 import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ def compare(models, data, save_dir, file_index, MODEL_NAME_MAP):
     comparison and save some plots. """
 
     # plot all the fits on top of each other
-    df_comparison(models, data, save_dir, file_index)
+    discount_function_plotter(models, data, save_dir, file_index)
 
     metric_results = model_comparison_metrics(models, save_dir, file_index)
     print(metric_results)
@@ -50,6 +50,3 @@ def compare(models, data, save_dir, file_index, MODEL_NAME_MAP):
     LOO = model_comparison_LOO(models, save_dir, file_index, MODEL_NAME_MAP)
     print(LOO)
     plt.cla()
-
-    # close all figs, otherwise we can run out of memory
-    #plt.close("all")

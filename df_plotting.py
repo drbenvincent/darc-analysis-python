@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pymc3 as pm
 import seaborn as sns
 import os as os
+#from df_data import _data_df2dict, longest_delay
 
 
 def plot_data(df, ax):
@@ -12,39 +12,34 @@ def plot_data(df, ax):
     ax.set_ylim([0, min(2, data_max_a_over_b+0.1)])
 
 
-def plot_discount_function_lines(ax, delay, df_matrix):
-    for n in range(0, df_matrix.shape[0]):
-        plt.plot(delay, df_matrix[n, :], color='k', alpha=0.1)
+def get_cmap(n, name='hsv'):
+    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
+    RGB color; the keyword argument name must be a standard mpl colormap name.'''
+    return plt.cm.get_cmap(name, n)
 
 
-def plot_discount_functions_region(ax, delays, df_matrix, alpha=0.05, col='r', label=None, plotCI=True):
-    curve_mean = df_matrix.mean(axis=1)
-    # curve_median = np.median(df_matrix, axis=1)
+def discount_function_plotter(models, data, path, file_id, export=True):
+    """Plot data, and discount functions for as many models as we're given"""
 
-    if plotCI:
-        percentiles = 100 * np.array([alpha / 2., 1. - alpha / 2.])
-        hpd = np.percentile(df_matrix, percentiles, axis=1)
-        ax.fill_between(delays, hpd[0], hpd[1], facecolor=col, alpha=0.25)
-
-    plt.plot(delays, curve_mean, color=col, label=label, lw=2.)
-
-
-def df_comparison(models, data, path, file_id, plotCI=True, export=True):
-    """Plot data and the posterior predictions for mulitple models"""
-
-    # plot bar chart of metrics ------------------------------------------------
+    # colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9',
+    #           'C10', 'C11', 'C12', 'C13', 'C14']
     fig, ax = plt.subplots(figsize=(14, 10))
-    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
+    col_func = get_cmap(len(models))
+
+    # 1: plot discount functions
     for i, model in enumerate(models):
-        delays, df_pp_matrix = model.df_posterior_prediction()
-        plot_discount_functions_region(ax, delays, df_pp_matrix, col=colors[i], label = model.__class__.__name__, plotCI=plotCI)
+        model.plot(data, ax, col=col_func(i))
 
-    ax.legend()
+    # 2: plot data
     plot_data(data, ax)
+
+    # 3: format axes
+    ax.legend()
     ax.set_xlabel('delay (days)')
     ax.set_ylabel('discount fraction')
 
+    # 4: save
     if export is True:
         plt.savefig(f'{path}/{file_id}_df_comparison.pdf', format='pdf', bbox_inches='tight')
 
