@@ -18,12 +18,13 @@ def get_cmap(n, name='hsv'):
     return plt.cm.get_cmap(name, n)
 
 
-def discount_function_plotter(models, data, path, file_id, export=True):
+def discount_function_plotter(ax, models, data, path, file_id, export=True):
     """Plot data, and discount functions for as many models as we're given"""
 
     # colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9',
     #           'C10', 'C11', 'C12', 'C13', 'C14']
-    fig, ax = plt.subplots(figsize=(14, 10))
+    #fig, ax = plt.subplots(figsize=(14, 10))
+
 
     col_func = get_cmap(len(models))
 

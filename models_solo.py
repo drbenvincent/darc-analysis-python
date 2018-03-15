@@ -143,7 +143,7 @@ class DiscountedUtilityModel(BinaryResponseModel):
 
         # plot mean df
         curve_mean = df_pp_matrix.mean(axis=1)
-        plt.plot(delays, curve_mean, color=col, label=self.__class__.__name__, lw=2.)
+        ax.plot(delays, curve_mean, color=col, label=self.__class__.__name__, lw=2.)
 
 
 class HeuristicModel(BinaryResponseModel):

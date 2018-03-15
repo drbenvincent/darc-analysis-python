@@ -37,16 +37,27 @@ def compare(models, data, save_dir, file_index, MODEL_NAME_MAP):
     """ For a list of models 'fitted' to one data file, conduct model
     comparison and save some plots. """
 
+    f = plt.figure(figsize=(18, 12))
+    ax1 = f.add_subplot(121)
+    ax2 = f.add_subplot(222)
+    ax3 = f.add_subplot(224)
+
     # plot all the fits on top of each other
-    discount_function_plotter(models, data, save_dir, file_index)
+    discount_function_plotter(ax1, models, data, save_dir, file_index, export=False)
 
-    metric_results = model_comparison_metrics(models, save_dir, file_index)
-    print(metric_results)
-
-    WAIC = model_comparison_WAIC(models, save_dir, file_index, MODEL_NAME_MAP)
+    WAIC = model_comparison_WAIC(ax2, models, save_dir, file_index, MODEL_NAME_MAP, export=False)
+    ax2.set_title('WAIC')
     print(WAIC)
+
+    LOO = model_comparison_LOO(ax3, models, save_dir, file_index, MODEL_NAME_MAP, export=False)
+    ax3.set_title('LOO')
+    print(LOO)
+
+    plt.savefig(f'{save_dir}/{file_index}_comparison.pdf', format='pdf', bbox_inches='tight')
+
     plt.cla()
 
-    LOO = model_comparison_LOO(models, save_dir, file_index, MODEL_NAME_MAP)
-    print(LOO)
+    # metric_results = model_comparison_metrics(models, save_dir, file_index)
+    # print(metric_results)
+
     plt.cla()
