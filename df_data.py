@@ -2,6 +2,23 @@ import numpy as np
 import pandas as pd
 
 
+# FUNCTIONS TO HELP CONSTRUCT EXPERIMENT META DATA ============================
+def build_metadata(files, filename_parser):
+    """Construct a pandas dataframe of experiment metadata.
+    Inputs:
+        files - a list of file paths to raw data files
+        filename_parser - a function which takes in a filename and returns a named tuple
+
+    Output:
+        a pandas dataframe with columns equal to the fields of the named tuple returned
+        by the filename_parser function.
+    """
+    meta = [filename_parser(fname) for fname in files]
+    fields = meta[0]._fields
+    return pd.DataFrame(meta, columns=fields)
+
+
+# FUNCTION TO HELP BUILD DATAFRAME OF RAW DATA ================================
 def import_raw_data(filenames):
     """Import raw discounting data from a list of filenames.
     Returns a dataframe, each row is one experimental trial"""
@@ -67,6 +84,7 @@ def _data_df2dict(df):
     return data
 
 
+# MISC DATA RELATED UTILITY FUNCTIONS =========================================
 def longest_delay(df):
     """return the longest delay seen in the dataset"""
     return max([max(df.DA), max(df.DB)])
