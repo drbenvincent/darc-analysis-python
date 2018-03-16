@@ -2,8 +2,10 @@ from df_data import get_data_by_file_index
 from df_plotting import plot_model_diagnostics
 from df_plotting import discount_function_plotter
 from model_comparison import model_comparison_metrics, model_comparison_LOO, model_comparison_WAIC
+from IPython.display import display
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def fit(model_classes, rawdata, expt_data, MODEL_NAME_MAP, save_dir='temp'):
@@ -11,6 +13,10 @@ def fit(model_classes, rawdata, expt_data, MODEL_NAME_MAP, save_dir='temp'):
     - We will save all analyses in a folder called save_dir
     - We will save fits of all models in a participant subfolder
     """
+
+    model_names = [model().__class__.__name__ for model in model_classes]
+    print(model_names)
+    META = pd.DataFrame()
 
     for file_index in expt_data.index:
         save_dir_subfolder = f'{save_dir}/{file_index}/'
@@ -22,15 +28,26 @@ def fit(model_classes, rawdata, expt_data, MODEL_NAME_MAP, save_dir='temp'):
 
         for model in models:
             model.sample_posterior(data)
-            model.results = expt_data
-            # ** UPDATE model.results HERE
+            model.results = expt_data # <----- TODO: check this
             plot_model_diagnostics(model, save_dir_subfolder, file_index)
-            # TODO: save model fit here
 
-        # MODEL COMPARISON STUFF HERE --------------------------------------
+        # Create a multi-level dataframe for point estimates for all Models.
+        # Just one row, corresponding to the current file
+        point_estimates_all_models = [model.point_estimates for model in models]
+        # create a dataframe with multiindex columns
+        results_this_file = pd.concat(point_estimates_all_models, axis=1, keys=model_names)
+        # append to large meta table
+        META = pd.concat([META, results_this_file])
+
+        # MODEL COMPARISON STUFF HERE -----------------------------------------
         compare(models, data, save_dir, file_index, MODEL_NAME_MAP)
 
-    return models
+    # ensure the index values are correct.
+    META = META.reset_index()
+    display(META)
+    results = pd.concat([expt_data, META], axis=1)
+
+    return results
 
 
 def compare(models, data, save_dir, file_index, MODEL_NAME_MAP):

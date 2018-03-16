@@ -7,6 +7,7 @@ from df_plotting import *
 from df_data import _data_df2dict, longest_delay
 
 from sklearn.metrics import log_loss
+import pandas as pd
 
 
 def choice_func_psychometric(α, ϵ, VA, VB):
@@ -78,6 +79,7 @@ class Model:
     # target_accept=.8
     model = None
     trace = None
+    point_estimates = None
 
     def get_df_traces(self):
         """returns a dictionary containing the discount fraction related
@@ -95,6 +97,7 @@ class Model:
         self.model = model
         self.trace = trace
         self.metrics = self._calc_metrics(data)
+        self.point_estimates = self._calc_point_estimates()
         return
 
     def plot(self, data, ax, col='k'):
@@ -145,6 +148,22 @@ class DiscountedUtilityModel(BinaryResponseModel):
         curve_mean = df_pp_matrix.mean(axis=1)
         ax.plot(delays, curve_mean, color=col, label=self.__class__.__name__, lw=2.)
 
+    def _calc_point_estimates(self):
+        """ Store a dataframe of point estimates"""
+        assert self.trace is not None, "No trace found. Have you sampled yet?"
+
+        param_dict = self.get_df_traces()
+
+        point_estimates = dict()
+        for param in param_dict.keys():
+            point_estimates[param] = np.median(param_dict[param])
+
+        point_estimates['log loss'] = np.median(self.metrics['log_loss'])
+
+        point_estimates['AUC'] = 'implement me'
+
+        return pd.DataFrame(point_estimates, index=[0])
+
 
 class HeuristicModel(BinaryResponseModel):
     """Heuristic models. No plotting (yet)"""
@@ -152,6 +171,19 @@ class HeuristicModel(BinaryResponseModel):
     def plot(self, data, ax, col='k'):
         pass
 
+    def _calc_point_estimates(self):
+        """ Store a dataframe of point estimates"""
+        assert self.trace is not None, "No trace found. Have you sampled yet?"
+
+        param_dict = self.get_df_traces()
+
+        point_estimates = dict()
+        for param in param_dict.keys():
+            point_estimates[param] = np.median(param_dict[param])
+
+        point_estimates['log loss'] = np.median(self.metrics['log_loss'])
+
+        return pd.DataFrame(point_estimates, index=[0])
 
 '''
                       _      _
@@ -182,6 +214,20 @@ class Coinflip(BinaryResponseModel):
     def plot(self, data, ax, col='k'):
         """No plotting for the coinflip model"""
         pass
+
+    def _calc_point_estimates(self):
+        """ Store a dataframe of point estimates"""
+        assert self.trace is not None, "No trace found. Have you sampled yet?"
+
+        param_dict = self.get_df_traces()
+
+        point_estimates = dict()
+        for param in param_dict.keys():
+            point_estimates[param] = np.median(param_dict[param])
+
+        point_estimates['log loss'] = np.median(self.metrics['log_loss'])
+
+        return pd.DataFrame(point_estimates, index=[0])
 
 
 class Exponential(DiscountedUtilityModel):
