@@ -1,8 +1,6 @@
 import numpy as np
 import pymc3 as pm
-import matplotlib.pyplot as plt
 from theano import tensor as T
-
 from df_plotting import *
 from df_data import _data_df2dict, longest_delay
 

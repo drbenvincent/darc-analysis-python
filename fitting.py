@@ -1,10 +1,7 @@
 from df_data import get_data_by_file_index
 from df_plotting import plot_model_diagnostics
-from df_plotting import discount_function_plotter
-from model_comparison import model_comparison_metrics, model_comparison_LOO, model_comparison_WAIC
-from IPython.display import display
-
-import matplotlib.pyplot as plt
+from model_comparison import compare
+#from IPython.display import display
 import pandas as pd
 
 
@@ -34,8 +31,11 @@ def fit(model_classes, rawdata, expt_data, MODEL_NAME_MAP, save_dir='temp'):
         # Create a multi-level dataframe for point estimates for all Models.
         # Just one row, corresponding to the current file
         point_estimates_all_models = [model.point_estimates for model in models]
-        # create a dataframe with multiindex columns
-        results_this_file = pd.concat(point_estimates_all_models, axis=1, keys=model_names)
+        # create a dataframe with MultiIndex columns
+        results_this_file = pd.concat(point_estimates_all_models,
+                                      axis=1,
+                                      keys=model_names,
+                                      names=['model', 'measure'])
         # append to large meta table
         META = pd.concat([META, results_this_file])
 
@@ -44,37 +44,13 @@ def fit(model_classes, rawdata, expt_data, MODEL_NAME_MAP, save_dir='temp'):
 
     # ensure the index values are correct.
     META = META.reset_index()
-    display(META)
+    META.drop('index', axis=1, inplace=True)
+
     results = pd.concat([expt_data, META], axis=1)
 
+    # export results
+    full_save_path = f"{save_dir}/results.csv"
+    print(f"Saving results to: {full_save_path}")
+    results.to_csv(full_save_path)
+
     return results
-
-
-def compare(models, data, save_dir, file_index, MODEL_NAME_MAP):
-    """ For a list of models 'fitted' to one data file, conduct model
-    comparison and save some plots. """
-
-    f = plt.figure(figsize=(18, 12))
-    ax1 = f.add_subplot(121)
-    ax2 = f.add_subplot(222)
-    ax3 = f.add_subplot(224)
-
-    # plot all the fits on top of each other
-    discount_function_plotter(ax1, models, data, save_dir, file_index, export=False)
-
-    WAIC = model_comparison_WAIC(ax2, models, save_dir, file_index, MODEL_NAME_MAP, export=False)
-    ax2.set_title('WAIC')
-    print(WAIC)
-
-    LOO = model_comparison_LOO(ax3, models, save_dir, file_index, MODEL_NAME_MAP, export=False)
-    ax3.set_title('LOO')
-    print(LOO)
-
-    plt.savefig(f'{save_dir}/{file_index}_comparison.pdf', format='pdf', bbox_inches='tight')
-
-    plt.cla()
-
-    # metric_results = model_comparison_metrics(models, save_dir, file_index)
-    # print(metric_results)
-
-    plt.cla()
