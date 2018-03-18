@@ -78,6 +78,7 @@ class Model:
     model = None
     trace = None
     point_estimates = None
+    metrics = None
 
     def get_df_traces(self):
         """returns a dictionary containing the discount fraction related
@@ -103,19 +104,7 @@ class Model:
         pass
 
 
-class BinaryResponseModel(Model):
-    """Models where people are making binary choices between 2 prospects. This
-    contrasts to matching designs where responses are continuous."""
-
-    metrics = None
-
-    def _calc_metrics(self, data):
-        metrics = {}
-        metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
-        return metrics
-
-
-class DiscountedUtilityModel(BinaryResponseModel):
+class DiscountedUtilityModel(Model):
     """Models based on discounted utility"""
 
     AUC = None
@@ -123,10 +112,18 @@ class DiscountedUtilityModel(BinaryResponseModel):
     def df_posterior_prediction(self, max_delay=365+7):
         assert self.trace is not None, "No trace found. Have you sampled yet?"
         delays = np.arange(0, max_delay, 1)
+        #delays = delays[:, np.newaxis] # <------------- Can I avoid this nonsense?
         param_dict = self.get_df_traces()
         discount_factor_matrix = self.df_plotting(delays, param_dict).T
         assert discount_factor_matrix.shape[0] == delays.shape[0], "Number of rows in posterior prediction should equal number of delays"
         return (delays, discount_factor_matrix)
+
+    def _calc_AUC(self, max_delay=365):
+        """Calculate area under curve as a generic measure of present bias
+        We actually return an array of AUC values, one for each MCMC sample."""
+        delays, discount_factor_matrix = self.df_posterior_prediction(max_delay=max_delay)
+        normalised_delays = delays / max_delay
+        return np.trapz(discount_factor_matrix.T, x=normalised_delays, axis=1)
 
     def plot(self, data, ax, col='k', plotCI=True, label=None, alpha=0.05):
         """Plot discount functions. Does the appropriate posterior prediction
@@ -157,13 +154,17 @@ class DiscountedUtilityModel(BinaryResponseModel):
             point_estimates[param] = np.median(param_dict[param])
 
         point_estimates['log loss'] = np.median(self.metrics['log_loss'])
-
-        point_estimates['AUC'] = 'implement me'
-
+        point_estimates['AUC'] = np.median(self.metrics['AUC'])
         return pd.DataFrame(point_estimates, index=[0])
 
+    def _calc_metrics(self, data):
+        metrics = {}
+        metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
+        metrics['AUC'] = self._calc_AUC()
+        return metrics
 
-class HeuristicModel(BinaryResponseModel):
+
+class HeuristicModel(Model):
     """Heuristic models. No plotting (yet)"""
 
     def plot(self, data, ax, col='k'):
@@ -183,6 +184,10 @@ class HeuristicModel(BinaryResponseModel):
 
         return pd.DataFrame(point_estimates, index=[0])
 
+    def _calc_metrics(self, data):
+        metrics = {}
+        metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
+        return metrics
 '''
                       _      _
   _ __ ___   ___   __| | ___| |___
@@ -193,7 +198,7 @@ class HeuristicModel(BinaryResponseModel):
 '''
 
 
-class Coinflip(BinaryResponseModel):
+class Coinflip(Model):
 
     df_params = ['p']
 
@@ -226,6 +231,11 @@ class Coinflip(BinaryResponseModel):
         point_estimates['log loss'] = np.median(self.metrics['log_loss'])
 
         return pd.DataFrame(point_estimates, index=[0])
+
+    def _calc_metrics(self, data):
+        metrics = {}
+        metrics['log_loss'] = calc_log_loss(self.trace.P_chooseB, data['R'])
+        return metrics
 
 
 class Exponential(DiscountedUtilityModel):
